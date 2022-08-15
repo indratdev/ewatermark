@@ -1,380 +1,250 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart' as ui;
+import 'package:image_watermark/image_watermark.dart';
+// import 'package:image/image.dart' as ui;
 
-import '../utilities/constants.dart';
+import '../utilities/app_helper.dart';
+import '../utilities/app_text_style.dart';
 
-class EWatermark extends StatefulWidget {
-  EWatermark({Key? key}) : super(key: key);
+class EWatermarkScreen extends StatefulWidget {
+  const EWatermarkScreen({Key? key}) : super(key: key);
 
   @override
-  State<EWatermark> createState() => _EWatermarkState();
+  _EWatermarkScreenState createState() => _EWatermarkScreenState();
 }
 
-class _EWatermarkState extends State<EWatermark> {
-  TextEditingController textController = TextEditingController();
-  File? _originalImage;
-  File? _watermarkImage;
-  File? _watermarkedImage;
-  File? imageFile;
+class _EWatermarkScreenState extends State<EWatermarkScreen> {
+  final _picker = ImagePicker();
+  CroppedFile? fileImage;
+  var cropImageFile;
+
   var _image;
-  var imgBytes;
-  final picker = ImagePicker();
-  var buttonsRowDirection = 1; //ROW DIRECTION
-  var buttonsColDirection = 2; //COLOUMN DIRECTION
+  var imageBytes;
 
-  Future getOriginalImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    setState(() {
-      if (pickedFile != null) {
-        _originalImage = File(pickedFile.path);
+  _getImageFrom({required ImageSource source}) async {
+    final _pickedImage = await _picker.pickImage(source: source);
+    if (_pickedImage != null) {
+      var image = File(_pickedImage.path.toString());
+      final _sizeInKbBefore = image.lengthSync() / 1024;
+      print('Before Compress $_sizeInKbBefore kb');
+      var _compressedImage = await AppHelper.compress(image: image);
+      final _sizeInKbAfter = _compressedImage.lengthSync() / 1024;
+      print('After Compress $_sizeInKbAfter kb');
+      var _croppedImage = await AppHelper.cropImage(_compressedImage);
+      if (_croppedImage == null) {
+        return;
       }
-    });
-  }
+      var t = await _croppedImage.readAsBytes();
 
-  Future getWatermarkImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    setState(() {
-      if (pickedFile != null) {
-        _watermarkImage = File(pickedFile.path);
-      }
-    });
-  }
-
-  // Future<File> drawTextOnImage() async {
-  //   // var image = await ImagePicker.pickImage(source: ImageSource.camera);
-
-  //   var decodeImg = img.decodeImage(image.readAsBytesSync());
-
-  //   img.drawString(decodeImg, img.arial_48, 0, 0, DateTime.now().toString());
-
-  //   var encodeImage = img.encodeJpg(decodeImg, quality: 100);
-
-  //   var finalImage = File(image.path)..writeAsBytesSync(encodeImage);
-
-  //   return finalImage;
-  // }
-
-  // /// Get from gallery
-  // _getFromGallery() async {
-  //   XFile? pickedFile = await ImagePicker().pickImage(
-  //     source: ImageSource.gallery,
-  //     maxWidth: 1800,
-  //     maxHeight: 1800,
-  //   );
-  //   if (pickedFile != null) {
-  //     setState(() {
-  //       imageFile = File(pickedFile.path);
-  //     });
-  //   }
-  // }
-
-  /// Get from Camera
-  _getFromCamera() async {
-    XFile? pickedFile = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-      maxWidth: 1800,
-      maxHeight: 1800,
-    );
-    if (pickedFile != null) {
       setState(() {
-        imageFile = File(pickedFile.path);
+        fileImage = _croppedImage;
+
+        _image = _croppedImage;
+
+        imageBytes = Uint8List.fromList(t);
       });
     }
-  }
-
-  pickImage() {
-    showDialog(
-        barrierDismissible: true,
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
-                side: const BorderSide(
-                  color: Colors.black,
-                ),
-              ),
-              insetPadding: const EdgeInsets.all(8),
-              elevation: 10,
-              titlePadding: const EdgeInsets.all(0.0),
-              title: Container(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 10, 10, 0),
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            alignment: FractionalOffset.topRight,
-                            child: GestureDetector(
-                              child: const Icon(
-                                Icons.clear,
-                                color: Colors.red,
-                              ),
-                              onTap: () {
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.warning_amber_sharp,
-                              size: 48,
-                            ),
-                            SizedBox(
-                              height: 15,
-                            ),
-                            Text(
-                              "Alert with Close Button",
-                              style: TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: FontStyle.normal),
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(
-                              height: 10,
-                            ),
-                            Text(
-                              "Your Subscription Plan Expiered",
-                              style: TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w400,
-                                  fontStyle: FontStyle.normal),
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(
-                              height: 20,
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-              ),
-              contentPadding: const EdgeInsets.all(8),
-              content: buttonsRowDirection == 1
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: <Widget>[
-                          SizedBox(
-                            width: MediaQuery.of(context).size.width / 4,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                pickImageFromGallery();
-                              },
-                              child: const Text("Galeri"),
-                            ),
-                          ),
-                          SizedBox(
-                            width: MediaQuery.of(context).size.width / 4,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                // isi disini
-                              },
-                              child: const Text("Kamera"),
-                            ),
-                          ),
-                        ])
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: //_getColButtons(context),
-                          <Widget>[Text("Continue"), Text("Cancel")]));
-        });
-  }
-
-  pickImageFromGallery() async {
-    XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
-    if (image != null) {
-      _image = image;
-      var t = await image.readAsBytes();
-      imgBytes = Uint8List.fromList(t);
-    }
-    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(Constants.appName),
+        title: const Text("Flutter Image Crop & Compress Demo "),
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.teal,
       ),
       body: SingleChildScrollView(
-        child: Center(
-          child: Column(
-            children: <Widget>[
-              GestureDetector(
-                onTap: pickImage,
-                child: Container(
-                  margin: EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                      border: Border.all(),
-                      borderRadius: BorderRadius.all(Radius.circular(5))),
-                  width: 600,
-                  height: 250,
-                  child: _image == null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add_a_photo),
-                                Text(" / "),
-                                Icon(Icons.browse_gallery_sharp),
-                              ],
-                            ),
-                            SizedBox(
-                              height: 10,
-                            ),
-                            Text('Click here to choose image')
-                          ],
-                        )
-                      : Image.memory(imgBytes,
-                          width: 600, height: 200, fit: BoxFit.fitHeight),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (fileImage != null)
+              Container(
+                height: 350,
+                width: 300,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black12, width: 1),
+                  borderRadius: const BorderRadius.all(Radius.circular(10)),
+                  color: Colors.grey,
+                  image: DecorationImage(
+                    image: FileImage(File(fileImage!.path)),
+                    // image: Image.file(File(fileImage)),
+
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                // child: Image(image: Image.file(File(fileImage!.path.toString()))),
+              )
+            else
+              Container(
+                height: 350,
+                width: 350,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black12, width: 1),
+                  borderRadius: const BorderRadius.all(Radius.circular(10)),
+                  color: Colors.grey[300],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      "assets/images/logo.png",
+                      width: 150,
+                    ),
+                    const SizedBox(
+                      height: 20,
+                    ),
+                    const Text(
+                      "Image will be shown here",
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 20),
+                    ),
+                  ],
                 ),
               ),
-              //<--------------- select original image ---------------->
-              _originalImage == null
-                  ? ElevatedButton(
-                      child: Text("Select Original Image"),
-                      onPressed: getOriginalImage,
-                    )
-                  : Image.file(_originalImage!),
-
-              //<--------------- select watermark image ---------------->
-              // _watermarkImage == null
-              //     ? ElevatedButton(
-              //         child: Text("Select Watermark Image"),
-              //         onPressed: getWatermarkImage,
-              //       )
-              //     : Image.file(_watermarkImage!),
-
-              SizedBox(
-                height: 50,
+            const SizedBox(
+              height: 50,
+            ),
+            Center(
+              child: ElevatedButton(
+                  onPressed: () {
+                    _openChangeImageBottomSheet();
+                  },
+                  child: const Text('Upload Image')),
+            ),
+            SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: "ISI TEXT WATERMARK",
+                    labelText: "ISI TEXT WATERMARK",
+                  ),
+                ),
               ),
-              //<--------------- apply watermark over image ---------------->
-              // (_originalImage != null) && (_watermarkImage != null)
-              (_originalImage != null)
-                  ? ElevatedButton(
-                      child: Text("Apply Watermark Over Image"),
-                      onPressed: () async {
-                        ui.Image? originalImage =
-                            ui.decodeImage(_originalImage!.readAsBytesSync());
-                        // ui.Image? watermarkImage =
-                        //     ui.decodeImage(_watermarkImage!.readAsBytesSync());
-
-                        // add watermark over originalImage
-                        // initialize width and height of watermark image
-                        ui.Image image = ui.Image(160, 50);
-                        // ui.drawImage(image, watermarkImage!);
-
-                        // give position to watermark over image
-                        // originalImage.width - 160 - 25 (width of originalImage - width of watermarkImage - extra margin you want to give)
-                        // originalImage.height - 50 - 25 (height of originalImage - height of watermarkImage - extra margin you want to give)
-                        ui.copyInto(originalImage!, image,
-                            dstX: originalImage.width - 160 - 25,
-                            dstY: originalImage.height - 50 - 25);
-
-                        // for adding text over image
-                        // Draw some text using 24pt arial font
-                        // 100 is position from x-axis, 120 is position from y-axis
-                        ui.drawString(originalImage, ui.arial_24, 100, 120,
-                            'TEST REMAKSSSSssssssss');
-
-                        // img.drawString(decodeImg, img.arial_48, 0, 0,
-                        //     DateTime.now().toString());
-
-                        // var encodeImage =
-                        //     img.encodeJpg(decodeImg, quality: 100);
-
-                        // var finalImage = File(image.path)
-                        //   ..writeAsBytesSync(encodeImage);
-
-                        // return finalImage;
-
-                        // Store the watermarked image to a File
-                        List<int> wmImage = ui.encodePng(originalImage);
-                        setState(() {
-                          _watermarkedImage =
-                              File.fromRawPath(Uint8List.fromList(wmImage));
-                        });
-                      },
-                    )
-                  : Container(),
-
-              //<--------------- display watermarked image ---------------->
-              _watermarkedImage != null
-                  ? Image.file(_watermarkedImage!)
-                  : Container(),
-            ],
-          ),
+            ),
+            (fileImage != null)
+                ? ElevatedButton(
+                    child: Text("Apply Watermark Over Image"),
+                    onPressed: () async {
+                      cropImageFile = await image_watermark.addTextWatermark(
+                        imageBytes,
+                        "watermarkText", //watermark text
+                        0, //
+                        0,
+                        color: Colors.black,
+                        //default : Colors.white
+                      );
+                      setState(() {});
+                    },
+                  )
+                : Container(),
+            (cropImageFile != null)
+                ? Container(
+                    height: 350,
+                    width: 300,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black12, width: 1),
+                      borderRadius: const BorderRadius.all(Radius.circular(10)),
+                    ),
+                    child: Image.memory(cropImageFile),
+                  )
+                : Container(),
+            SizedBox(height: 20),
+          ],
         ),
       ),
+    );
+  }
 
-      // Column(
-      //   mainAxisAlignment: MainAxisAlignment.center,
-      //   crossAxisAlignment: CrossAxisAlignment.center,
-      //   children: <Widget>[
-      //     Container(
-      //       width: double.infinity,
-      //       color: Colors.amber,
-      //       child: imageFile == null
-      //           ? Container(
-      //               alignment: Alignment.center,
-      //               child: Column(
-      //                 mainAxisAlignment: MainAxisAlignment.center,
-      //                 children: <Widget>[
-      //                   ElevatedButton(
-      //                     // color: Colors.greenAccent,
-      //                     onPressed: () {
-      //                       _getFromGallery();
-      //                     },
-      //                     child: Text("PICK FROM GALLERY"),
-      //                   ),
-      //                   Container(
-      //                     height: 40.0,
-      //                   ),
-      //                   ElevatedButton(
-      //                     // color: Colors.lightGreenAccent,
-      //                     onPressed: () {
-      //                       _getFromCamera();
-      //                     },
-      //                     child: Text("PICK FROM CAMERA"),
-      //                   )
-      //                 ],
-      //               ),
-      //             )
-      //           : Container(
-      //               child: Image.file(
-      //                 imageFile!,
-      //                 fit: BoxFit.cover,
-      //               ),
-      //             ),
-      //     ),
-      //   ],
-      // ),
+  _openChangeImageBottomSheet() {
+    return showCupertinoModalPopup(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return CupertinoActionSheet(
+            title: Text(
+              'Change Image',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.regular(fontSize: 19),
+            ),
+            actions: <Widget>[
+              _buildCupertinoActionSheetAction(
+                icon: Icons.camera_alt,
+                title: 'Take Photo',
+                voidCallback: () {
+                  Navigator.pop(context);
+                  _getImageFrom(source: ImageSource.camera);
+                },
+              ),
+              _buildCupertinoActionSheetAction(
+                icon: Icons.image,
+                title: 'Gallery',
+                voidCallback: () {
+                  Navigator.pop(context);
+                  _getImageFrom(source: ImageSource.gallery);
+                },
+              ),
+              _buildCupertinoActionSheetAction(
+                title: 'Cancel',
+                color: Colors.red,
+                voidCallback: () {
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          );
+        });
+  }
+
+  _buildCupertinoActionSheetAction({
+    IconData? icon,
+    required String title,
+    required VoidCallback voidCallback,
+    Color? color,
+  }) {
+    return CupertinoActionSheetAction(
+      child: Row(
+        children: [
+          if (icon != null)
+            Icon(
+              icon,
+              color: color ?? const Color(0xFF2564AF),
+            ),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.regular(
+                fontSize: 17,
+                color: color ?? const Color(0xFF2564AF),
+              ),
+            ),
+          ),
+          if (icon != null)
+            const SizedBox(
+              width: 25,
+            ),
+        ],
+      ),
+      onPressed: voidCallback,
     );
   }
 }

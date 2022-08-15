@@ -156,7 +156,7 @@ class _LandingScreenState extends State<LandingScreen> {
         onTap: () {
           Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
-                builder: (context) => EWatermark(),
+                builder: (context) => EWatermarkScreen(),
               ),
               (route) => false);
         },
